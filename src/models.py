@@ -35,8 +35,10 @@ class GCN(nn.Module):
         out = self.classifier(h).squeeze()
         return out
 
-# GCN-EW model
-class GCN_EW(nn.Module):
+
+
+# GCN+LSTM model
+class GCN_LSTM(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim, edge_index):
         super().__init__()
         torch.manual_seed(1234)
@@ -44,27 +46,31 @@ class GCN_EW(nn.Module):
 
         self.conv1 = GCNConv(in_dim, hidden_dim)
         self.conv2 = GCNConv(hidden_dim, hidden_dim)
+        # self.conv3 = GRUConv(hidden_dim, hidden_dim)  # Removed as GRUConv is not defined
         self.classifier = nn.Linear(hidden_dim, out_dim)
 
     def forward(self, x, edge_index):
         h = self.conv1(x, edge_index, torch.exp(self.edge_weight)).relu()
         h = self.conv2(h, edge_index, torch.exp(self.edge_weight)).relu()
-
+        # h = self.conv3(h, edge_index, torch.exp(self.edge_weight)).relu()
         out = self.classifier(h).squeeze()
         return out
 
-# GAT model
-class GAT(nn.Module):
-    def __init__(self, hidden_channels, heads, in_dim, out_dim):
+# GCN+BiGRU model
+class GCN_BiGRU(nn.Module):
+    def __init__(self, in_dim, hidden_dim, out_dim):
         super().__init__()
         torch.manual_seed(1234)
-        self.conv1 = GATConv(in_dim, hidden_channels, heads)
-        self.conv2 = GATConv(heads*hidden_channels, hidden_channels, heads)
-        self.classifier = nn.Linear(heads*hidden_channels, out_dim)
+        self.conv1 = GCNConv(in_dim, hidden_dim)
+        self.gru1 = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
+        self.gru2 = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
+        self.classifier = nn.Linear(hidden_dim, out_dim)
 
     def forward(self, x, edge_index):
         h = self.conv1(x, edge_index).relu()
-        h = self.conv2(h, edge_index).relu()
-
+        #h = h.unsqueeze(0)  # Add batch dimension for GRU
+        h, _ = self.gru1(h)
+        h, _ = self.gru2(h)
+        h = h.squeeze(0)  # Remove batch dimension after GRU
         out = self.classifier(h).squeeze()
         return out
